@@ -53,3 +53,6 @@ When you run `main.py`, the following sequences automatically fire:
 5. Overlapping match boundaries are checked implicitly using native binary Set Intersections yielding the total aggregate shared tally.
 6. The exact number of identical movies gets printed out seamlessly. 
 7. (*Note: The initial start calls `cleanup_movies()` and `cleanup_keys()` automatically to groom standard state tests between each clean run of `main.py`*).
+
+### Collaboration Statement
+Our team used Claude (Anthropic) to assist with debugging, ideating, and testing our protocol.
