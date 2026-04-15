@@ -37,8 +37,10 @@ class Bob:
             filepath = os.path.join(movie_folder, filename)
             if os.path.isfile(filepath):
                 with open(filepath, 'rb') as f:
-                    file_hash = hashlib.sha256(f.read()).hexdigest()
-                    file_hash = int(file_hash, 16)
+                    hash_obj = hashlib.sha256()
+                    while chunk := f.read(8192):
+                        hash_obj.update(chunk)
+                    file_hash = int(hash_obj.hexdigest(), 16)
                 self.__movies.add(file_hash)
 
 
@@ -65,7 +67,7 @@ class Bob:
     def compare_movies(self, opposite_party_double_movie_key_filepath):
         with open(opposite_party_double_movie_key_filepath, 'r') as f:
             opposite_party_double_movie_keys = set(json.load(f))
-        common_movies = self.__double_movie_keys & opposite_party_double_movie_keys
+        common_movies = set(self.__double_movie_keys) & opposite_party_double_movie_keys
 
         return len(common_movies)
 
