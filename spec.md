@@ -119,7 +119,7 @@ Alice computes `|B'' ∩ A''|` and prints the result. This equals the true inter
 ### 5.1 Hardness Assumption
 Security of this protocol relies on the **Decisional Diffie-Hellman (DDH) assumption** in the group Z*_p with the RFC 3526 Group 5 1536-bit prime. The DDH assumption states that for a uniformly random secret exponent `a`, the tuple (g, g^x, g^a, g^(xa)) is computationally indistinguishable from (g, g^x, g^a, g^r) for a random r. This is believed to hold for the 1536-bit MODP group.
 
-### 5.2 Privacy of Alice's Set Against Bob (Honest-but-Curious)
+### 5.2 Privacy of Alice's Set Against Bob
 
 **What Bob observes**: B' (his own set — he knows this), A' = {H(mᵢ)^a mod p}, and A'' = {H(mᵢ)^(ab) mod p}.
 
