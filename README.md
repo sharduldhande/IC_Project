@@ -1,5 +1,6 @@
 # Private Set Intersection Cardinality (PSI-CA) for Movie Matching
 
+## Project spec is under [spec.md](spec.md)
 This project implements a cryptographic protocol allowing two parties (Alice and Bob) to determine exactly how many movies they have in common (the cardinality of their intersection) without revealing the names or contents of the overlapping movies, nor the rest of their libraries.
 
 ## Math Foundations
