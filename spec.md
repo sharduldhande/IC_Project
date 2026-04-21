@@ -1,4 +1,4 @@
-# Project Specification: Private Set Intersection (PSI)
+# Project Specification: Private Set Intersection Cardinality (PSI-CA)
 
 ## Team Members
 Vinay Gupta & Shardul Dhande
@@ -7,7 +7,7 @@ Vinay Gupta & Shardul Dhande
 
 ## 1. Problem Statement
 
-Alice and Bob each receive 15 movies (each ~100 MB) from a distributor named Charles. They suspect Charles is not personalizing their lists and want to identify exactly which movies they have in common. However, neither party trusts the other enough to reveal the contents of their full movie libraries. Our goal is to implement a **Private Set Intersection (PSI)** protocol: both parties correctly learn which movies they share, while neither party learns anything about the other party's movies that are *not* in the intersection.
+Alice and Bob each receive 15 movies (each ~100 MB) from a distributor named Charles. They suspect Charles is not personalizing their lists and want to test how many movies they share in common. However, neither party trusts the other enough to reveal the contents of their movie libraries. Our goal for this protocol is to compute the size of the intersection of their movie sets **|A ∩ B|** without either party learning which specific movies they share, which movies the other party holds exclusively, or anything else beyond the intersection cardinality.
 
 ---
 
@@ -15,20 +15,22 @@ Alice and Bob each receive 15 movies (each ~100 MB) from a distributor named Cha
 
 We define the following formal security goals for this protocol:
 
-### 2.1 Privacy of Alice's Non-Intersection Elements
-After the protocol concludes, Bob learns the blinded fingerprints of the matched movies `{H(m)^(ab) : m ∈ A ∩ B}` — the intended PSI output — but learns **nothing** about any of Alice's movies that are *not* in the intersection. He cannot distinguish Alice's exclusive movies from any other movies not in her set.
+### 2.1 Privacy of Alice's Set
+After the protocol concludes, Bob learns only **|A ∩ B|** (the count). He learns nothing else about Alice's movies: not which specific movies she holds, not which movies matched, and not the total size of her library beyond what is inferable from the count.
 
-### 2.2 Privacy of Bob's Non-Intersection Elements
-Symmetrically, Alice learns the blinded fingerprints of matched movies but learns **nothing** about any of Bob's movies that are not in the intersection.
+### 2.2 Privacy of Bob's Set
+Symmetrically, Alice learns only **|A ∩ B|**. She learns nothing about Bob's movie library beyond the count.
 
 ### 2.3 Correctness
-If both parties execute the protocol honestly, both parties correctly identify every movie that is byte-for-byte identical between their two sets, and no false matches are reported.
+If both parties execute the protocol honestly, the output **|A ∩ B|** is exactly equal to the number of files that are byte-for-byte identical between Alice's and Bob's movie folders.
 
-### 2.4 Known Limitations and Assumptions
-- **No active security**: The protocol is proven secure only against **passive adversaries** who follow the protocol honestly but may attempt to extract additional information from their view. Active attacks (e.g., sending malformed exponentials) are out of scope.
-- **No authentication**: There is no mechanism to verify that published keys come from the claimed party. A man-in-the-middle attack is ruled out of scope.
-- **Blinded output, not plaintext**: The intersection is revealed as double-encrypted blinded fingerprints `{H(m)^(ab)}`, not as raw movie identities. Recovering actual movie content from these values requires solving the Discrete Logarithm Problem. The count `|A ∩ B|` is printed as a human-readable summary.
-- **Set-size leakage**: Both parties can observe the number of published key values (15 each), revealing set sizes, which is considered public in our model.
+### 2.4 Known limitations and assumptions
+- **No active security**: The protocol is proven secure only against **passive adversaries** who follow the protocol honestly but may try to extract information from only their own view of information. Neither Alice nor Bob launch active attacks (for example, sending malformed values).
+- **No authentication**: There is no mechanism to verify that the published keys actually come from the claimed party, and we rule a man-in-the-middle attack out of scope for this project.
+- **Output**: Both parties learn the cardinality |A ∩ B|, which is an intentional exchange of information and is the designed output.
+- **Set-size leakage**: Both parties can observe the number of published key values (15 each), revealing the set sizes, which is considered public in our model. We also observe in the edge case of each movie matching, that Alice/Bob learn each of the other person's movie, which we declare as something unavoidable in our scope.
+- **Single-element set attacks**: Alice or Bob could submit a single movie at a time or a set of movies with only one valid movie and other elements being None. Any intersection would then be directly mapped to that movie, breaking cardinality.
+- **Dictionary attacks**: Alice or Bob could rent the n-most popular movies on the market, create hashes for them and then use these hashes in combination with Single-element set attack to break PSI itself. However, in a way Alice or Bob *could* be thought to have those movies in their collection, so still maintaining PSI.
 
 ---
 
@@ -88,54 +90,52 @@ DE2BCBF6 95581718 3995497C EA956AE5 15D22618 98FA0510
 Alice                                              Bob
   |                                                 |
   |-- generates secret key a                        |-- generates secret key b
-  |-- for each mᵢ ∈ A: computes H(mᵢ)^a mod p     |-- for each nⱼ ∈ B: computes H(nⱼ)^b mod p
+  |-- for each mᵢ ∈ A: computes H(mᵢ)^a mod p       |-- for each nⱼ ∈ B: computes H(nⱼ)^b mod p
   |                                                 |
-  |   publishes A' = {H(mᵢ)^a mod p}  -----------> |
-  |           <------------------------  publishes B' = {H(nⱼ)^b mod p}
+  |-- publishes A' = {H(mᵢ)^a mod p}  ----------->  |
+  |                                   <-----------  |-- publishes B' = {H(nⱼ)^b mod p}
   |                                                 |
-  |-- for each yⱼ ∈ B': computes yⱼ^a mod p        |-- for each xᵢ ∈ A': computes xᵢ^b mod p
-  |   (produces B'' = {H(nⱼ)^(ba) mod p})          |   (produces A'' = {H(mᵢ)^(ab) mod p})
+  |-- for each yⱼ ∈ B': computes yⱼ^a mod p         |-- for each xᵢ ∈ A': computes xᵢ^b mod p
+  |-- (produces B'' = {H(nⱼ)^(ba) mod p})           |   (produces A'' = {H(mᵢ)^(ab) mod p})
   |                                                 |
-  |   publishes B''            ──────────────────>  |
-  |           <────────────────────────────────     | publishes A''
+  |-- publishes B''                   ----------->  |
+  |                                   <-----------  |-- publishes A''
   |                                                 |
-  |-- output: B'' ∩ A''  (the PSI result)            |-- (optionally output: A'' ∩ B'')
+  |-- output: |B'' ∩ A''|                           |-- (optionally output: |A'' ∩ B''|)
 ```
 
 **Commutativity property**: Because modular exponentiation is commutative,
 ```
 H(mᵢ)^(ab) mod p  =  H(mᵢ)^(ba) mod p
 ```
-Therefore an element appears in both A'' and B'' **if and only if** the same movie mᵢ = nⱼ exists in both original sets.
+Therefore, an element appears in both A and B **if and only if** the same movie mᵢ = nⱼ exists in both original sets.
 
 ### 4.4 Output
 
-The PSI output is the set `B'' ∩ A'' = {H(m)^(ab) mod p : m ∈ A ∩ B}` — the double-encrypted fingerprints of all shared movies. Alice computes this intersection and reports its size as a human-readable count. Bob can independently compute `A'' ∩ B''` and obtain the identical set. The actual movie identities are protected by the Discrete Logarithm Problem — neither party can recover movie content from a blinded fingerprint without solving DLP.
+Alice computes `|B'' ∩ A''|` and prints the result. This equals the true intersection cardinality. Bob could independently verify by computing `|A'' ∩ B''|` and getting the same result.
 
 ---
 
 ## 5. Security Analysis
 
 ### 5.1 Hardness Assumption
-Security of this protocol relies on the **Decisional Diffie-Hellman (DDH) assumption** in the group Z*_p with the RFC 3526 Group 5 1536-bit prime. The DDH assumption states that for a uniformly random secret exponent `a`, the tuple (g, g^x, g^a, g^(xa)) is computationally indistinguishable from (g, g^x, g^a, g^r) for a random r. This is believed to hold for the 1536-bit MODP group.
+Security of this protocol relies on the **Decisional Diffie-Hellman (DDH) assumption** in the group Z*_p with the RFC 3526 Group 5 1536-bit prime. The DDH assumption states that for uniformly random secret exponents `a` and `b`, the tuple (g, g^a, g^b, g^(ab)) is computationally indistinguishable from (g, g^a, g^b, g^r) for a random r. This is believed to hold for the 1536-bit MODP group.
 
-### 5.2 Privacy of Alice's Non-Intersection Elements Against Bob
+### 5.2 Privacy of Alice's Set Against Bob (Honest-but-Curious)
 
-**What Bob observes**: his own set B, A' = {H(mᵢ)^a mod p}, and A'' = {H(mᵢ)^(ab) mod p}.
+**What Bob observes**: B' (his own set — he knows this), A' = {H(mᵢ)^a mod p}, and A'' = {H(mᵢ)^(ab) mod p}.
 
-**PSI security claim**: Bob correctly learns the blinded intersection `{H(m)^(ab) : m ∈ A ∩ B}` (the intended output), but learns **nothing** about Alice's non-intersection movies `A \ B`.
+**Why Bob learns nothing new about A beyond |A ∩ B|**:
+- From A', Bob sees exponentiated hashes of Alice's movies. To recover H(mᵢ) from H(mᵢ)^a mod p, Bob would need to solve the Discrete Logarithm Problem (DLP) in the 1536-bit group — computationally infeasible.
+- Bob cannot test whether a particular movie m is in Alice's set by computing H(m)^a mod p without knowing `a`. Because `a` is Alice's secret key drawn uniformly from [2, p-2], this is equivalent to breaking the one-more-DLP.
+- From A'', Bob sees H(m_i)^(ab). Since Bob already possesses A', recovering it from A'' would provide no new information. Even with A', DLP prevents Bob from reading H(m_i) himself.
+- **Set element linkage**: A critical PSI-CA property is that Bob cannot determine which element of A' corresponds to which element of A''. Our implementation publishes both A' and B'' (and symmetrically B' and A'') in cryptographically random order using `secrets.SystemRandom`shuffle, preventing positional correlation. Because Bob does not know `a`, he cannot compute `(H(nⱼ)^b)^a = H(nⱼ)^(ab)` for his own elements and then use that to link positions in B'' back to positions in B'. 
 
-**Why Bob cannot learn about Alice's exclusive movies**:
-- From A', Bob sees blinded hashes. To test whether a specific movie m_guess is in Alice's set, he would need to compute `H(m_guess)^a mod p` and check membership in A'. This requires Alice's secret key `a` — without it, this is the Computational Diffie-Hellman (CDH) problem in a 1536-bit group.
-- From A'', Bob sees `{H(mᵢ)^(ab)}`. Bob knows b, so he can compute `(H(mᵢ)^(ab))^(b⁻¹ mod (p-1))` to recover A' — but he already has A'. Even with A', recovering H(mᵢ) requires solving DLP.
-- **Bob does correctly learn which A' entries are in the intersection** (he built the A' → A'' mapping himself during `generate_double_movie_keys`). This is the intended PSI behavior — Bob identifies the matched blinded elements. He cannot trace these back to actual movie identities without solving DLP.
-- For Alice's non-matched movies: their blinded entries in A' are computationally indistinguishable from random group elements under DDH. Bob gains zero information about them.
+Under DDH, Bob learns nothing about Alice's movie set beyond the intersection cardinality |A ∩ B|.
 
-Under DDH, Bob learns the blinded intersection fingerprints and nothing about Alice's non-intersection movies.
+### 5.3 Privacy of Bob's Set Against Alice
 
-### 5.3 Privacy of Bob's Non-Intersection Elements Against Alice
-
-By the symmetric structure of the protocol, an identical argument holds for Alice's view {A', B', B''}. Alice correctly learns the blinded intersection fingerprints. Under DDH, she learns nothing about Bob's movies in `B \ A`.
+By the symmetric structure of the protocol, an identical argument holds for Alice's view {A', B', B''}. Under DDH, Alice learns nothing about Bob's movie set beyond |A ∩ B|.
 
 ### 5.4 Correctness
 
@@ -148,14 +148,13 @@ By the symmetric structure of the protocol, an identical argument holds for Alic
 - The same argument applies for elements exclusive to Bob's set.
 - Therefore `|A'' ∩ B''| = |A ∩ B|`.
 
-### 5.5 What Bob Learns (PSI Output)
+### 5.5 Set-Ordering Argument
 
-In a PSI protocol, both parties are *entitled* to learn which set elements are in the intersection. During `generate_double_movie_keys`, Bob iterates over A' and builds the mapping `H(mᵢ)^a → H(mᵢ)^(ab)`. When he computes `A'' ∩ B''`, he can identify which specific entries of A' correspond to matched movies. This is **correct PSI behavior**, not a leakage — it is the designed output of the protocol.
+A side channel exists if the published sets preserve the original ordering of elements (e.g., if Alice publishes A' as an ordered list and A'' in the same order). This would let Bob match A'[i] ↔ A''[i], and since he knows which A''[i] are in the intersection, he could learn which specific A'[i] matched.
 
-What Bob cannot do beyond this:
-- **Recover movie content**: Knowing `H(mᵢ)^a` for a matched entry does not reveal `H(mᵢ)` or the movie file — DLP prevents inversion.
-- **Test non-intersection guesses**: Testing whether a movie `m_guess ∉ A ∩ B` is in Alice's exclusive set requires computing `H(m_guess)^a` without knowing `a` — CDH prevents this.
-- **Learn anything about A \ B**: Alice's non-matched entries in A' are computationally indistinguishable from random group elements under DDH.
+Our implementation avoids this by:
+1. Explicitly shuffling the key lists using `secrets.SystemRandom` before publishing, ensuring the output order is cryptographically random.
+2. Because `a` is secret, Bob cannot compute `pow(A'[i], b, p)` to re-derive the same ordering of A''.
 
 ---
 
@@ -208,7 +207,7 @@ This will:
 1. Clean up any prior run artifacts.
 2. Create 30 dummy movie files as Charles's catalog.
 3. Randomly assign 15 movies each to Alice and Bob.
-4. Execute the full DH-PSI protocol.
+4. Execute the full DH-PSI-CA protocol.
 5. Print the number of common movies.
 
 ---

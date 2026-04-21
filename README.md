@@ -25,12 +25,12 @@ To conduct the intersection gracefully via exponentiation commutativity $(x^a)^b
 
 ### 3. Calculating the Cardinality
 If Alice and Bob share an identical movie ($m_i = n_j$), their resulting double-encrypted hashes will be identical because $H(m_i)^{ab} \equiv H(n_j)^{ba} \pmod p$.
-Both parties take the symmetric difference by finding the intersection overlap $|A'' \cap B''|$. Taking the length of this intersection mathematically outputs the cardinality without requiring any more communication.
+Both parties compute the intersection $|A'' \cap B''|$. The size of this set gives the cardinality of the shared movies.
 
 ### How Anonymity / Hiding is Assured
 A critical goal is that **neither party learns *which* of their specific movies matched**.
-* Even though Alice knows the overlap intersection value $Z$, she does not know Bob's private key $b$. Therefore, she cannot computationally reverse-engineer which of her original single-encrypted keys ($X_i$) Bob used to arrive at $Z$.
-* From a system side-channel perspective, preserving the array index positions during iterations would break the linkage anonymity. Our implementation gracefully prevents this correlation. When parsing the exchanged JSON keys, Python converts them into a `set()`. For integers, Python's underlying hashing natively scatters the iteration order deterministically based on their individual mathematical limits ($\pmod{table\_size}$). Because Alice does not know $b$, mapping back $X_i^b$ purely through iteration order resembles a secure random permutation.
+* When Alice return B'' to Bob, she publishes the double encrypted values in a cryptographically random order. To correlate a specific B'' entry back to his original movie n_j, Bob would need to compute H(n_j)^{ba} from H(n_j)^b which would require Alice's key a. This is a CDH hard problem. The same applies in other direction to Bob.
+* For non-intersection elements, the blinded tokens are computationally indistinguishable from random group elements because of DDH. Neither party gains information about the other's exclusive movies.
 
 ## Running the Code
 

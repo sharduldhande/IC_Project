@@ -19,6 +19,8 @@ PRIME = int("""
     15728E5A 8AACAA68 FFFFFFFF FFFFFFFF
     """.replace(" ", "").replace("\n", ""), 16)
 
+rng = secrets.SystemRandom()
+
 class Alice:
     def __init__(self, movie_folder):
 
@@ -50,8 +52,9 @@ class Alice:
         for ahash in self.__movies:
             movie_key = pow(ahash, self.__private_key, PRIME)
             movie_keys.add(movie_key)
-
-        self.__movie_keys = list(movie_keys)
+        movie_keys_list = list(movie_keys)
+        rng.shuffle(movie_keys_list)
+        self.__movie_keys = movie_keys_list
 
     def generate_double_movie_keys(self, opposite_party_movie_key_filepath):
         with open(opposite_party_movie_key_filepath, 'r') as f:
@@ -61,8 +64,9 @@ class Alice:
             double_movie_key = pow(ahash, self.__private_key, PRIME)
             double_movie_keys.add(double_movie_key)
 
-        self.__double_movie_keys = list(double_movie_keys)
-
+        double_movie_keys_list = list(double_movie_keys)
+        rng.shuffle(double_movie_keys_list)
+        self.__double_movie_keys = double_movie_keys_list
 
     def compare_movies(self, opposite_party_double_movie_key_filepath):
         with open(opposite_party_double_movie_key_filepath, 'r') as f:
