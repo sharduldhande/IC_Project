@@ -28,7 +28,9 @@ If both parties execute the protocol honestly, the output **|A ∩ B|** is exact
 - **No active security**: The protocol is proven secure only against **passive adversaries** who follow the protocol honestly but may try to extract information from only their own view of information. Neither Alice nor Bob launch active attacks (for example, sending malformed values).
 - **No authentication**: There is no mechanism to verify that the published keys actually come from the claimed party, and we rule a man-in-the-middle attack out of scope for this project.
 - **Output**: Both parties learn the cardinality |A ∩ B|, which is an intentional exchange of information and is the designed output.
-- **Set-size leakage**: Both parties can observe the number of published key values (15 each), revealing the set sizes, which is considered public in our model. e alos observe in the edge case of each movie matching, that Alice/Bob learn each of the other person's movie, which we declare as something unavoidable in our scope
+- **Set-size leakage**: Both parties can observe the number of published key values (15 each), revealing the set sizes, which is considered public in our model. We also observe in the edge case of each movie matching, that Alice/Bob learn each of the other person's movie, which we declare as something unavoidable in our scope.
+- **Single-element set attacks**: Alice or Bob could submit a single movie at a time or a set of movies with only one valid movie and other elements being None. Any intersection would then be directly mapped to that movie, breaking cardinality.
+- **Dictionary attacks**: Alice or Bob could rent the n-most popular movies on the market, create hashes for them and then use these hashes in combination with Single-element set attack to break PSI itself. However, in a way Alice or Bob *could* be thought to have those movies in their collection, so still maintaining PSI.
 
 ---
 
@@ -88,16 +90,16 @@ DE2BCBF6 95581718 3995497C EA956AE5 15D22618 98FA0510
 Alice                                              Bob
   |                                                 |
   |-- generates secret key a                        |-- generates secret key b
-  |-- for each mᵢ ∈ A: computes H(mᵢ)^a mod p     |-- for each nⱼ ∈ B: computes H(nⱼ)^b mod p
+  |-- for each mᵢ ∈ A: computes H(mᵢ)^a mod p       |-- for each nⱼ ∈ B: computes H(nⱼ)^b mod p
   |                                                 |
-  |   publishes A' = {H(mᵢ)^a mod p}  -----------> |
-  |           <------------------------  publishes B' = {H(nⱼ)^b mod p}
+  |-- publishes A' = {H(mᵢ)^a mod p}  ----------->  |
+  |                                   <-----------  |-- publishes B' = {H(nⱼ)^b mod p}
   |                                                 |
-  |-- for each yⱼ ∈ B': computes yⱼ^a mod p        |-- for each xᵢ ∈ A': computes xᵢ^b mod p
-  |   (produces B'' = {H(nⱼ)^(ba) mod p})          |   (produces A'' = {H(mᵢ)^(ab) mod p})
+  |-- for each yⱼ ∈ B': computes yⱼ^a mod p         |-- for each xᵢ ∈ A': computes xᵢ^b mod p
+  |-- (produces B'' = {H(nⱼ)^(ba) mod p})           |   (produces A'' = {H(mᵢ)^(ab) mod p})
   |                                                 |
-  |   publishes B''            ──────────────────>  |
-  |           <────────────────────────────────     | publishes A''
+  |-- publishes B''                   ----------->  |
+  |                                   <-----------  |-- publishes A''
   |                                                 |
   |-- output: |B'' ∩ A''|                           |-- (optionally output: |A'' ∩ B''|)
 ```
@@ -106,7 +108,7 @@ Alice                                              Bob
 ```
 H(mᵢ)^(ab) mod p  =  H(mᵢ)^(ba) mod p
 ```
-Therefore an element appears in both A and B **if and only if** the same movie mᵢ = nⱼ exists in both original sets.
+Therefore, an element appears in both A and B **if and only if** the same movie mᵢ = nⱼ exists in both original sets.
 
 ### 4.4 Output
 
@@ -117,7 +119,7 @@ Alice computes `|B'' ∩ A''|` and prints the result. This equals the true inter
 ## 5. Security Analysis
 
 ### 5.1 Hardness Assumption
-Security of this protocol relies on the **Decisional Diffie-Hellman (DDH) assumption** in the group Z*_p with the RFC 3526 Group 5 1536-bit prime. The DDH assumption states that for a uniformly random secret exponent `a`, the tuple (g, g^x, g^a, g^(xa)) is computationally indistinguishable from (g, g^x, g^a, g^r) for a random r. This is believed to hold for the 1536-bit MODP group.
+Security of this protocol relies on the **Decisional Diffie-Hellman (DDH) assumption** in the group Z*_p with the RFC 3526 Group 5 1536-bit prime. The DDH assumption states that for uniformly random secret exponents `a` and `b`, the tuple (g, g^a, g^b, g^(ab)) is computationally indistinguishable from (g, g^a, g^b, g^r) for a random r. This is believed to hold for the 1536-bit MODP group.
 
 ### 5.2 Privacy of Alice's Set Against Bob (Honest-but-Curious)
 
@@ -126,9 +128,8 @@ Security of this protocol relies on the **Decisional Diffie-Hellman (DDH) assump
 **Why Bob learns nothing new about A beyond |A ∩ B|**:
 - From A', Bob sees exponentiated hashes of Alice's movies. To recover H(mᵢ) from H(mᵢ)^a mod p, Bob would need to solve the Discrete Logarithm Problem (DLP) in the 1536-bit group — computationally infeasible.
 - Bob cannot test whether a particular movie m is in Alice's set by computing H(m)^a mod p without knowing `a`. Because `a` is Alice's secret key drawn uniformly from [2, p-2], this is equivalent to breaking the one-more-DLP.
-- From A'', Bob sees H(mᵢ)^(ab). Bob knows b, so he could attempt to compute H(mᵢ)^a = (H(mᵢ)^(ab))^(b⁻¹ mod (p-1)). This *would* recover A', which Bob already has — providing no new information. More critically, even with A' in hand, the DLP prevents Bob from reaching H(mᵢ) itself.
-- **Set element linkage**: A critical privacy property is that Bob cannot determine *which element of A'* corresponds to *which element of A''*. When Alice publishes these sets, the ordering is destroyed by Python's `set()` which internally hashes the large integers into an arbitrary permutation. Because Bob does not know `a`, he cannot compute `(H(nⱼ)^b)^a = H(nⱼ)^(ab)` for his own elements and then use that to link positions in A'' back to positions in A'. Wait — he can for *his own* movies in B''. He can identify which elements of A'' are matched (those in A'' ∩ B''), but the matched elements came from Bob's own double-encrypted set, so he already knew those movies were his. He does not learn which of Alice's specific A' entries correspond to those intersection elements, because:
-  - The set intersection only says there exists some mᵢ = nⱼ; given DDH, mapping A'' → A' → H(mᵢ) is computationally hard.
+- From A'', Bob sees H(m_i)^(ab). Since Bob already possesses A', recovering it from A'' would provide no new information. Even with A', DLP prevents Bob from reading H(m_i) himself.
+- **Set element linkage**: A critical PSI-CA property is that Bob cannot determine which element of A' corresponds to which element of A''. Our implementation publishes both A' and B'' (and symmetrically B' and A'') in cryptographically random order using `secrets.SystemRandom`shuffle, preventing positional correlation. Because Bob does not know `a`, he cannot compute `(H(nⱼ)^b)^a = H(nⱼ)^(ab)` for his own elements and then use that to link positions in B'' back to positions in B'. 
 
 Under DDH, Bob learns nothing about Alice's movie set beyond the intersection cardinality |A ∩ B|.
 
@@ -152,9 +153,8 @@ By the symmetric structure of the protocol, an identical argument holds for Alic
 A side channel exists if the published sets preserve the original ordering of elements (e.g., if Alice publishes A' as an ordered list and A'' in the same order). This would let Bob match A'[i] ↔ A''[i], and since he knows which A''[i] are in the intersection, he could learn which specific A'[i] matched.
 
 Our implementation avoids this by:
-1. Computing `movie_keys` and `double_movie_keys` using Python `set()` operations internally, which destroys insertion order.
-2. Publishing keys as JSON arrays whose iteration order is determined by Python's integer hash table, which is a function of the value modulo the internal table size — independent of the original movie order.
-3. Because `a` is secret, Bob cannot compute `pow(A'[i], b, p)` to re-derive the same ordering of A''.
+1. Explicitly shuffling the key lists using `secrets.SystemRandom` before publishing, ensuring the output order is cryptographically random.
+2. Because `a` is secret, Bob cannot compute `pow(A'[i], b, p)` to re-derive the same ordering of A''.
 
 ---
 
